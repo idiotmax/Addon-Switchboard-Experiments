@@ -194,7 +194,8 @@ function _fetchExperimentsConfiguration(callback) {
   let xhr = Cc["@mozilla.org/xmlextras/xmlhttprequest;1"].createInstance(Ci.nsIXMLHttpRequest);
 
   try {
-    xhr.open("GET", EXPERIMENTS_CONFIGURATION, true);
+    let url = EXPERIMENTS_CONFIGURATION + "?" + Math.floor(Date.now() / 1000)
+    xhr.open("GET", url, true);
   } catch (e) {
     Cu.reportError("Error opening request: " + e);
     return;
