@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Switchboard Experiments</title>
+  <meta name="viewport" content="width=device-width; user-scalable=0" />
+  <style>
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    li {
+      padding: 25px;
+      margin-bottom: 5px;
+    }
+    li[isEnabled="true"] {
+      background-color: #c5e1a5;
+    }
+    li[isEnabled="false"] {
+      background-color: #ef9a9a;
+    }
+  </style>
+</head>
+
+<body>
+  <ul id="list"/>
+  <script src="chrome://experiments/content/experiments.js"></script>
+</body>
+</html>
