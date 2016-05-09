@@ -1,6 +1,6 @@
 "use strict";
 
-const { classes: Cc, interfaces: Ci, utils: Cu } = Components;
+const { classes: Cc, interfaces: Ci, manager: Cm, utils: Cu } = Components;
 
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
@@ -15,12 +15,43 @@ const PANEL_ID = "switchboard.experiments.panel@androidzeitgeist.com";
 const DATASET_ID = "switchboard.experiments.dataset@androidzeitgeist.com";
 const EXPERIMENTS_CONFIGURATION = "https://raw.githubusercontent.com/mozilla-services/switchboard-experiments/master/experiments.json";
 
+const contract = "@mozilla.org/network/protocol/about;1?what=experiments";
+const description = "about:experiments";
+const uuid = Components.ID("3C8B4060-1478-11E6-B350-53C63FB77F5E");
+
+let aboutFactory = {
+  createInstance: function(outer, iid) {
+    if (outer != null)
+      throw Cr.NS_ERROR_NO_AGGREGATION;
+
+    return aboutExperiments.QueryInterface(iid);
+  }
+};
+
+let aboutExperiments = {
+  QueryInterface: XPCOMUtils.generateQI([Ci.nsIAboutModule]),
+
+  getURIFlags: function(aURI) {
+    return Ci.nsIAboutModule.ALLOW_SCRIPT;
+  },
+
+  newChannel: function(aURI) {
+    if (aURI.spec != "about:experiments")
+      return;
+
+    let uri = Services.io.newURI("chrome://experiments/content/experiments.html", null, null);
+    return Services.io.newChannelFromURI(uri);
+  }
+};
+
+
 function log(msg) {
   Log.d("expt-addon", msg);
 }
 
 function startup(data, reason) {
   log("startup: " + reason);
+  Cm.QueryInterface(Ci.nsIComponentRegistrar).registerFactory(uuid, description, contract, aboutFactory);
 
   Home.panels.register(PANEL_ID, _optionsCallback);
 
@@ -48,10 +79,12 @@ function startup(data, reason) {
 
 function shutdown(data, reason) {
   log("shutdown");
+  Cm.QueryInterface(Ci.nsIComponentRegistrar).unregisterFactory(uuid, aboutFactory);
 
   if (reason == ADDON_UNINSTALL || reason == ADDON_DISABLE) {
     Home.panels.uninstall(PANEL_ID);
     _deleteDataset();
+    _clearOverrides();
   }
 
   Home.panels.unregister(PANEL_ID);
@@ -84,7 +117,7 @@ function _optionsCallback() {
 function _refreshDataset() {
   log("_refreshDataset");
 
-  _fetchExperimentsConfiguration();
+  _fetchExperimentsConfiguration(_onExperimentsConfigurationDownloaded);
 }
 
 /**
@@ -125,6 +158,21 @@ function _deleteDataset() {
 }
 
 /**
+ * Clear overrides set in about:experiments.
+ */
+function _clearOverrides() {
+  let Experiments = Services.wm.getMostRecentWindow("navigator:browser").Experiments;
+
+  _fetchExperimentsConfiguration(function _clearOverridesFromConfiguration(configuration) {
+    log("_clearOverridesFromConfiguration");
+
+    for (let name in configuration) {
+      Experiments.clearOverride(name);
+    }
+  });
+}
+
+/**
  * Get list of locally enabled experiments
  */
 function _getEnabledExperiments() {
@@ -140,7 +188,7 @@ function _getEnabledExperiments() {
 /**
  * Fetch list of experiments from server configuration
  */
-function _fetchExperimentsConfiguration() {
+function _fetchExperimentsConfiguration(callback) {
   log("_fetchExperimentsConfiguration");
 
   let xhr = Cc["@mozilla.org/xmlextras/xmlhttprequest;1"].createInstance(Ci.nsIXMLHttpRequest);
@@ -159,7 +207,7 @@ function _fetchExperimentsConfiguration() {
   xhr.onload = function onload(event) {
     if (xhr.status === 200) {
       try {
-        _onExperimentsConfigurationDownloaded(JSON.parse(xhr.responseText));
+        callback(JSON.parse(xhr.responseText));
       } catch (e) {
         Cu.reportError("Error parsing request: " + e);
       }
