@@ -11,7 +11,7 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "Messaging","resource://gre/modules/Messaging.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "Log", "resource://gre/modules/AndroidLog.jsm", "AndroidLog");
 
-const EXPERIMENTS_CONFIGURATION = "https://raw.githubusercontent.com/mozilla-services/switchboard-experiments/master/experiments.json";
+const EXPERIMENTS_CONFIGURATION = "https://firefox.settings.services.mozilla.com/v1/buckets/fennec/collections/experiments/records";
 
 const Experiments = Services.wm.getMostRecentWindow("navigator:browser").Experiments;
 
@@ -29,13 +29,13 @@ function initList() {
     let enabledExperiments = values[0];
     let configuration = values[1];
 
-    for (let name in configuration) {
+    configuration.data.forEach(function(experiment) {
       let item = document.createElement("li");
-      item.textContent = name;
-      item.setAttribute("name", name);
-      item.setAttribute("isEnabled", enabledExperiments.indexOf(name) != -1);
+      item.textContent = experiment.name;
+      item.setAttribute("name", experiment.name);
+      item.setAttribute("isEnabled", enabledExperiments.indexOf(experiment.name) != -1);
       list.appendChild(item);
-    }
+    });
   });
 }
 

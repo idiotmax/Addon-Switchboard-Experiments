@@ -13,7 +13,7 @@ XPCOMUtils.defineLazyModuleGetter(this, "Log", "resource://gre/modules/AndroidLo
 
 const PANEL_ID = "switchboard.experiments.panel@androidzeitgeist.com";
 const DATASET_ID = "switchboard.experiments.dataset@androidzeitgeist.com";
-const EXPERIMENTS_CONFIGURATION = "https://raw.githubusercontent.com/mozilla-services/switchboard-experiments/master/experiments.json";
+const EXPERIMENTS_CONFIGURATION = "https://firefox.settings.services.mozilla.com/v1/buckets/fennec/collections/experiments/records";
 
 const contract = "@mozilla.org/network/protocol/about;1?what=experiments";
 const description = "about:experiments";
@@ -130,14 +130,14 @@ function _onExperimentsConfigurationDownloaded(configuration) {
     let enabledExperiments = yield _getEnabledExperiments();
     let items = [];
 
-    for (let name in configuration) {
-      let isInExperiment = enabledExperiments.indexOf(name) != -1;
+    configuration.data.forEach(function(experiment) {
+      let isInExperiment = enabledExperiments.indexOf(experiment.name) != -1;
       items.push({
         url: "https://github.com/mozilla-services/switchboard-experiments",
-        title: name,
+        title: experiment.name,
         background_color: isInExperiment ? "#c5e1a5" : "#ef9a9a"
       });
-    }
+    });
 
     let storage = HomeProvider.getStorage(DATASET_ID);
     yield storage.deleteAll();
@@ -166,9 +166,7 @@ function _clearOverrides() {
   _fetchExperimentsConfiguration(function _clearOverridesFromConfiguration(configuration) {
     log("_clearOverridesFromConfiguration");
 
-    for (let name in configuration) {
-      Experiments.clearOverride(name);
-    }
+    configuration.data.forEach((experiment) => Experiments.clearOverride(experiment.name));
   });
 }
 
