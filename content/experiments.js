@@ -7,7 +7,9 @@ const { classes: Cc, interfaces: Ci, manager: Cm, utils: Cu } = Components;
 
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
+Cu.import("resource://gre/modules/AppConstants.jsm");
 
+XPCOMUtils.defineLazyModuleGetter(this, "EventDispatcher","resource://gre/modules/Messaging.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "Messaging","resource://gre/modules/Messaging.jsm");
 XPCOMUtils.defineLazyModuleGetter(this, "Log", "resource://gre/modules/AndroidLog.jsm", "AndroidLog");
 
@@ -56,10 +58,28 @@ function toggleOverride(e) {
 function promiseEnabledExperiments() {
   log("promiseEnabledExperiments");
 
-  return Messaging.sendRequestForResult({
+  // Check app version for backward compatibility
+  let appVersion = AppConstants.MOZ_APP_VERSION;
+  let implEventDispatcher;
+  if(appVersion.split(".")[0] > 53){
+    implEventDispatcher = EventDispatcher.instance;
+  } else {
+    implEventDispatcher = Messaging;
+  }
+
+  return implEventDispatcher.sendRequestForResult({
     type: "Experiments:GetActive"
   }).then(experiments => {
-    return JSON.parse(experiments);
+    let result = experiments;
+
+    //  Before firefox 55 data format is json serialized as string
+    //  Try to parse json for backward compatibility
+    try {
+      result = JSON.parse(experiments);
+    } catch (e) {
+      log("json parse fail; fallback to return object directly");
+    }
+    return result;
   });
 }
 
